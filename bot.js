@@ -35,84 +35,90 @@ bot ishlamoqda savolingizni yuboring men tez orada javob beraman`,
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
 
-  // Agar foydalanuvchi buyruq yozgan bo‘lsa, e'tiborga olinmasin
+  // "/start" buyrug‘iga javob bermaslik
   if (msg.text === "/start") return;
 
-  // Ovozli xabar tekshirish
+  // Ovozli xabarni tekshirish
   if (msg.voice) {
-    const fileId = msg.voice.file_id;
-    const fileUrl = await bot.getFileLink(fileId);
-    const audioPath = path.join(__dirname, "voice.ogg");
+    try {
+      const fileId = msg.voice.file_id;
+      const file = await bot.getFile(fileId);
+      const fileUrl = https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path};
+      const audioPath = path.join(__dirname, "voice.ogg");
 
-    // Ovoz faylini yuklab olish
-    const writer = fs.createWriteStream(audioPath);
-    const response = await axios({ url: fileUrl, responseType: "stream" });
-    response.data.pipe(writer);
+      // Ovoz faylini yuklab olish
+      const response = await axios({ url: fileUrl, responseType: "stream" });
+      const writer = fs.createWriteStream(audioPath);
+      response.data.pipe(writer);
 
-    writer.on("finish", async () => {
-      try {
-        // OpenAI Whisper API orqali ovozni matnga o‘girish
-        const formData = new FormData();
-        formData.append("file", fs.createReadStream(audioPath));
-        formData.append("model", "whisper-1");
+      writer.on("finish", async () => {
+        try {
+          // OpenAI Whisper API orqali ovozni matnga o‘girish
+          const formData = new FormData();
+          formData.append("file", fs.createReadStream(audioPath));
+          formData.append("model", "whisper-1");
 
-        const whisperResponse = await axios.post(
-          "https://api.openai.com/v1/audio/transcriptions",
-          formData,
-          {
-            headers: {
-              Authorization: Bearer ${OPENAI_API_KEY},
-              ...formData.getHeaders(),
+          const whisperResponse = await axios.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            formData,
+            {
+              headers: {
+                Authorization: Bearer ${OPENAI_API_KEY},
+                ...formData.getHeaders(),
+              },
+            }
+          );
+
+          const userMessage = whisperResponse.data.text;
+
+          // GPT-4 Turbo orqali javob olish
+          const gptResponse = await axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+              model: "gpt-4-turbo",
+              messages: [{ role: "user", content: userMessage }],
             },
-          }
-        );
+            {
+              headers: {
+                Authorization: Bearer ${OPENAI_API_KEY},
+                "Content-Type": "application/json",
+              },
+            }
+          );
 
-        const userMessage = whisperResponse.data.text;
+          const replyText = gptResponse.data.choices[0].message.content;
 
-        // GPT-4 Turbo orqali javob olish
-        const gptResponse = await axios.post(
-          "https://api.openai.com/v1/chat/completions",
-          {
-            model: "gpt-4-turbo",
-            messages: [{ role: "user", content: userMessage }],
-          },
-          {
-            headers: {
-              Authorization: Bearer ${OPENAI_API_KEY},
-              "Content-Type": "application/json",
+          // OpenAI tts-1 modeli bilan javobni ovozga o‘girish
+          const ttsResponse = await axios.post(
+            "https://api.openai.com/v1/audio/speech",
+            {
+              model: "tts-1",
+              input: replyText,
+              voice: "nova",
             },
-          }
-        );
+            {
+              headers: {
+                Authorization: Bearer ${OPENAI_API_KEY},
+                "Content-Type": "application/json",
+              },
+              responseType: "arraybuffer",
+            }
+          );
 
-        const replyText = gptResponse.data.choices[0].message.content;
-        
-        // OpenAI tts-1 modeli bilan javobni ovozga o‘girish
-        const ttsResponse = await axios.post(
-          "https://api.openai.com/v1/audio/speech",
-          {
-            model: "tts-1",
-            input: replyText,
-            voice: "nova",
-          },
-          {
-            headers: {
-              Authorization: Bearer ${OPENAI_API_KEY},
-              "Content-Type": "application/json",
-            },
-            responseType: "arraybuffer",
-          }
-        );
+          const outputAudioPath = path.join(__dirname, "response.ogg");
+          fs.writeFileSync(outputAudioPath, ttsResponse.data);
 
-        const outputAudioPath = path.join(__dirname, "response.ogg");
-        fs.writeFileSync(outputAudioPath, ttsResponse.data);
-
-        // Javobni ovoz orqali jo‘natish
-        await bot.sendVoice(chatId, outputAudioPath);
-      } catch (error) {
-        console.error("Xatolik:", error);
-        bot.sendMessage(chatId, "Kechirasiz, xatolik yuz berdi.");
-      }
-    });
+          // Javobni ovoz orqali jo‘natish
+          await bot.sendVoice(chatId, outputAudioPath);
+        } catch (error) {
+          console.error("Xatolik:", error);
+          bot.sendMessage(chatId, "Kechirasiz, xatolik yuz berdi.");
+        }
+      });
+    } catch (error) {
+      console.error("Ovoz faylini yuklashda xatolik:", error);
+      bot.sendMessage(chatId, "Ovozli xabarni qayta ishlashda xatolik yuz berdi.");
+    }
     return;
   }
 
