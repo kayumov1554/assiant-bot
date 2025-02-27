@@ -2,6 +2,10 @@ require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 const axios = require("axios");
 
+const express = require("express");
+const app = express();
+const PORT = 3000;
+
 // .env faylidan tokenlarni olish
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -9,7 +13,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // Botni ishga tushirish
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-console.log("🤖 Telegram bot ishga tushdi...");
+
 
 // Foydalanuvchi /start bosganda javob berish
 bot.onText(/\/start/, (msg) => {
@@ -54,4 +58,8 @@ bot.on("message", async (msg) => {
     console.error("OpenAI xatosi:", error);
     bot.sendMessage(chatId, "Kechirasiz, bog‘lanishda xatolik yuz berdi.");
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ API server http://localhost:${PORT} da ishlayapti`);
 });
