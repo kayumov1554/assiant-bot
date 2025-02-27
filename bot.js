@@ -35,7 +35,7 @@ bot.on("message", async (msg) => {
   const userMessage = msg.text;
 
   // Agar foydalanuvchi buyruq yozgan bo‘lsa, e'tiborga olinmasin
-  if (userMessage === ("/start") return;
+  if (userMessage === "/start") return;
 
   try {
     const response = await axios.post(
