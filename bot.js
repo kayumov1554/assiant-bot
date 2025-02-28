@@ -40,8 +40,8 @@ bot.on("message", async (msg) => {
     const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: userMessage }],
+        model: "gpt-4o-turbo",
+        messages: [{ role: "system", content: userMessage }],
       },
       {
         headers: {
